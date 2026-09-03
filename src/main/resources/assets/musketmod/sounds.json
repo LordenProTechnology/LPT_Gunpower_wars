@@ -1,0 +1,9 @@
+{
+  "musket_shoot": {
+    "category": "player",
+    "subtitle": "subtitles.musketmod.musket_shoot",
+    "sounds": [
+      "musketmod:musket_shoot"
+    ]
+  }
+}

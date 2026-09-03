@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="musketmod"
+version="1.0.0"
+displayName="Lorden Musket Mod"
+authors="Lorden"
+description='''
+NAJLEPSZY MOD NA MUSZKIETY.
+'''
+
+[[dependencies.musketmod]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.musketmod]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
