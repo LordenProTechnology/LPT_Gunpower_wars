@@ -41,20 +41,20 @@ public class MusketItem extends Item {
             return InteractionResultHolder.consume(itemstack);
         }
 
-        boolean hasStick = player.getOffhandItem().is(Items.STICK);
+        boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
         boolean hasGunpowder = player.getInventory().contains(new ItemStack(Items.GUNPOWDER));
         boolean hasKula = player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
 
-        if (hasStick && hasGunpowder && hasKula) {
+        if (hasRamrod && hasGunpowder && hasKula) {
             itemstack.getOrCreateTag().putBoolean("IsAiming", false);
             player.startUsingItem(hand);
             return InteractionResultHolder.consume(itemstack);
         } else {
             if (level.isClientSide) {
-                if (!hasStick) {
-                    player.displayClientMessage(Component.literal("Musisz trzymac patyk w lewej rece!"), true);
+                if (!hasRamrod) {
+                    player.displayClientMessage(Component.literal("Musisz trzymac pobojczyk w lewej rece!"), true);
                 } else {
-                    player.displayClientMessage(Component.literal("Brak skladnikow do ladowania muszkietu!"), true);
+                    player.displayClientMessage(Component.literal("Brak prochu lub kul do zaladowania!"), true);
                 }
             }
             return InteractionResultHolder.fail(itemstack);
@@ -74,6 +74,13 @@ public class MusketItem extends Item {
             if (!level.isClientSide && !isLoaded(stack) && !nbt.getBoolean("IsAiming") && usedDuration >= CHARGE_TIME) {
                 consumeItem(player, Items.GUNPOWDER);
                 consumeItem(player, ModItems.MUSKET_BALL.get());
+
+                // Pobojczyk w lewej ręce traci 1 punkt wytrzymałości
+                ItemStack offhandStack = player.getOffhandItem();
+                if (offhandStack.is(ModItems.RAMROD.get())) {
+                    offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
+                }
+
                 player.containerMenu.broadcastChanges();
 
                 setLoaded(stack, true);
@@ -104,7 +111,6 @@ public class MusketItem extends Item {
             bullet.pickup = AbstractArrow.Pickup.DISALLOWED;
             level.addFreshEntity(bullet);
 
-            // Zużycie broni (1 punkt na 250) i jej zniszczenie po zużyciu
             stack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(player.getUsedItemHand()));
 
             level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.6F, 0.6F);

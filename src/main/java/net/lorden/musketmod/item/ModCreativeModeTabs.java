@@ -20,6 +20,7 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.MUSKET.get());
                         output.accept(ModItems.MUSKET_BALL.get());
+                        output.accept(ModItems.RAMROD.get());
                         output.accept(ModItems.ARKEBUZ.get());
                         // TU DODAJESZ SZAFER
                     })

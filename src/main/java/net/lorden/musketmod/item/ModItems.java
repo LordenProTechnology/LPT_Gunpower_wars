@@ -16,6 +16,9 @@ public class ModItems {
     public static final RegistryObject<Item> MUSKET_BALL = ITEMS.register("musket_ball",
             () -> new Item(new Item.Properties()));
 
+    public static final RegistryObject<Item> RAMROD = ITEMS.register("ramrod",
+            () -> new Item(new Item.Properties().durability(128)));
+
     public static final RegistryObject<Item> MUSKET = ITEMS.register("musket",
             () -> new MusketItem(new Item.Properties().stacksTo(1).durability(250)));
 
