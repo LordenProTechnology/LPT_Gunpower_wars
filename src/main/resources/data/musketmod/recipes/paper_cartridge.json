@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "minecraft:paper" },
+    { "item": "minecraft:gunpowder" },
+    { "item": "musketmod:musket_ball" }
+  ],
+  "result": {
+    "item": "musketmod:paper_cartridge",
+    "count": 4
+  }
+}

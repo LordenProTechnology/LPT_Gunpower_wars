@@ -42,11 +42,15 @@ public class MusketItem extends Item {
         }
 
         boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
-        boolean hasGunpowder = player.getInventory().contains(new ItemStack(Items.GUNPOWDER));
-        boolean hasKula = player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
+        boolean hasCartridge = player.getInventory().contains(new ItemStack(ModItems.PAPER_CARTRIDGE.get()));
+        boolean hasPowderAndBall = player.getInventory().contains(new ItemStack(Items.GUNPOWDER))
+                && player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
 
-        if (hasRamrod && hasGunpowder && hasKula) {
-            itemstack.getOrCreateTag().putBoolean("IsAiming", false);
+        if (hasRamrod && (hasCartridge || hasPowderAndBall)) {
+            CompoundTag tag = itemstack.getOrCreateTag();
+            tag.putBoolean("IsAiming", false);
+            // Kartusz ma pierwszeństwo – skraca ładowanie o połowę
+            tag.putBoolean("UsingCartridge", hasCartridge);
             player.startUsingItem(hand);
             return InteractionResultHolder.consume(itemstack);
         } else {
@@ -54,7 +58,7 @@ public class MusketItem extends Item {
                 if (!hasRamrod) {
                     player.displayClientMessage(Component.literal("Musisz trzymac pobojczyk w lewej rece!"), true);
                 } else {
-                    player.displayClientMessage(Component.literal("Brak prochu lub kul do zaladowania!"), true);
+                    player.displayClientMessage(Component.literal("Brak kartusza lub prochu i kul!"), true);
                 }
             }
             return InteractionResultHolder.fail(itemstack);
@@ -67,13 +71,20 @@ public class MusketItem extends Item {
             CompoundTag nbt = stack.getOrCreateTag();
             int usedDuration = this.getUseDuration(stack) - count;
 
+            boolean usingCartridge = nbt.getBoolean("UsingCartridge");
+            int requiredChargeTime = usingCartridge ? (CHARGE_TIME / 2) : CHARGE_TIME;
+
             if (!isLoaded(stack) && !nbt.getBoolean("IsAiming")) {
                 nbt.putInt("PullTicks", usedDuration);
             }
 
-            if (!level.isClientSide && !isLoaded(stack) && !nbt.getBoolean("IsAiming") && usedDuration >= CHARGE_TIME) {
-                consumeItem(player, Items.GUNPOWDER);
-                consumeItem(player, ModItems.MUSKET_BALL.get());
+            if (!level.isClientSide && !isLoaded(stack) && !nbt.getBoolean("IsAiming") && usedDuration >= requiredChargeTime) {
+                if (usingCartridge) {
+                    consumeItem(player, ModItems.PAPER_CARTRIDGE.get());
+                } else {
+                    consumeItem(player, Items.GUNPOWDER);
+                    consumeItem(player, ModItems.MUSKET_BALL.get());
+                }
 
                 // Pobojczyk w lewej ręce traci 1 punkt wytrzymałości
                 ItemStack offhandStack = player.getOffhandItem();
@@ -85,6 +96,7 @@ public class MusketItem extends Item {
 
                 setLoaded(stack, true);
                 nbt.remove("PullTicks");
+                nbt.remove("UsingCartridge");
                 player.getCooldowns().addCooldown(this, RELOAD_COOLDOWN);
                 level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
                 player.releaseUsingItem();
@@ -101,6 +113,7 @@ public class MusketItem extends Item {
             setLoaded(stack, false);
         }
         nbt.remove("PullTicks");
+        nbt.remove("UsingCartridge");
         nbt.putBoolean("IsAiming", false);
     }
 
@@ -152,7 +165,8 @@ public class MusketItem extends Item {
     @Override
     public int getBarWidth(ItemStack stack) {
         if (stack.hasTag() && stack.getTag().getInt("PullTicks") > 0 && !isLoaded(stack)) {
-            return Math.min(13, Math.round((float) stack.getTag().getInt("PullTicks") * 13.0F / (float) CHARGE_TIME));
+            int maxTime = stack.getTag().getBoolean("UsingCartridge") ? (CHARGE_TIME / 2) : CHARGE_TIME;
+            return Math.min(13, Math.round((float) stack.getTag().getInt("PullTicks") * 13.0F / (float) maxTime));
         }
         return Math.round(13.0F - (float) stack.getDamageValue() * 13.0F / (float) stack.getMaxDamage());
     }

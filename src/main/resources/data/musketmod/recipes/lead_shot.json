@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "musketmod:musket_ball" },
+    { "item": "minecraft:flint" }
+  ],
+  "result": {
+    "item": "musketmod:lead_shot",
+    "count": 4
+  }
+}
