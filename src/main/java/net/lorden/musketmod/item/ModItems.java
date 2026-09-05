@@ -32,6 +32,9 @@ public class ModItems {
     public static final RegistryObject<Item> GARLACZ = ITEMS.register("garlacz",
             () -> new GarlaczItem(new Item.Properties().stacksTo(1).durability(1000)));
 
+    public static final RegistryObject<Item> HEAVY_MUSKET = ITEMS.register("heavy_musket",
+            () -> new HeavyMusketItem(new Item.Properties().stacksTo(1).durability(350)));
+
     public static void register(IEventBus bus) {
         ITEMS.register(bus);
     }

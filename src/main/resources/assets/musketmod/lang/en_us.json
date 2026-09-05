@@ -6,5 +6,7 @@
   "item.musketmod.arkebuz": "Battle Arquebus",
   "item.musketmod.ramrod": "Pobojczyk",
   "item.musketmod.paper_cartridge": "Paper Cartridge",
-  "item.musketmod.lead_shot": "Lead Shot"
+  "item.musketmod.lead_shot": "Lead Shot",
+  "item.musketmod.heavy_musket": "Matchlock Musket",
+  "item.musketmod.garlacz": "Blunderbuss"
 }

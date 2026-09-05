@@ -5,6 +5,8 @@ import net.lorden.musketmod.entity.ModEntities;
 import net.lorden.musketmod.item.ArkebuzItem; // <-- TEGO IMPORTU BRAKOWAŁO
 import net.lorden.musketmod.item.ModItems;
 import net.lorden.musketmod.item.MusketItem;
+import net.lorden.musketmod.item.GarlaczItem;
+import net.lorden.musketmod.item.HeavyMusketItem;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
@@ -28,6 +30,10 @@ public class ClientModEvents {
             ItemProperties.register(ModItems.GARLACZ.get(),
                     new ResourceLocation(MusketMod.MOD_ID, "loaded"),
                     (stack, level, entity, seed) -> GarlaczItem.isLoaded(stack) ? 1.0F : 0.0F);
+
+            ItemProperties.register(ModItems.HEAVY_MUSKET.get(),
+                    new ResourceLocation(MusketMod.MOD_ID, "loaded"),
+                    (stack, level, entity, seed) -> HeavyMusketItem.isLoaded(stack) ? 1.0F : 0.0F);
 
             // Rejestracja dla Muszkietu
             ItemProperties.register(ModItems.MUSKET.get(),
