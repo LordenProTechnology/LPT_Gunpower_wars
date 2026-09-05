@@ -25,6 +25,10 @@ public class ClientModEvents {
                     new ResourceLocation(MusketMod.MOD_ID, "loaded"),
                     (stack, level, entity, seed) -> ArkebuzItem.isLoaded(stack) ? 1.0F : 0.0F);
 
+            ItemProperties.register(ModItems.GARLACZ.get(),
+                    new ResourceLocation(MusketMod.MOD_ID, "loaded"),
+                    (stack, level, entity, seed) -> GarlaczItem.isLoaded(stack) ? 1.0F : 0.0F);
+
             // Rejestracja dla Muszkietu
             ItemProperties.register(ModItems.MUSKET.get(),
                     new ResourceLocation(MusketMod.MOD_ID, "loaded"),

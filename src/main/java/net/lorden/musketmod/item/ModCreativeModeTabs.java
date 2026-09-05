@@ -24,6 +24,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.LEAD_SHOT.get());
                         output.accept(ModItems.RAMROD.get());
                         output.accept(ModItems.ARKEBUZ.get());
+                        output.accept(ModItems.GARLACZ.get());
                         // TU DODAJESZ SZAFER
                     })
                     .build());

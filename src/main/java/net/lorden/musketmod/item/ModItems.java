@@ -26,9 +26,11 @@ public class ModItems {
     public static final RegistryObject<Item> MUSKET = ITEMS.register("musket",
             () -> new MusketItem(new Item.Properties().stacksTo(1).durability(250)));
 
-    // Rejestracja Arkebuza:
     public static final RegistryObject<Item> ARKEBUZ = ITEMS.register("arkebuz",
             () -> new ArkebuzItem(new Item.Properties().stacksTo(1).durability(1000)));
+
+    public static final RegistryObject<Item> GARLACZ = ITEMS.register("garlacz",
+            () -> new GarlaczItem(new Item.Properties().stacksTo(1).durability(1000)));
 
     public static void register(IEventBus bus) {
         ITEMS.register(bus);
