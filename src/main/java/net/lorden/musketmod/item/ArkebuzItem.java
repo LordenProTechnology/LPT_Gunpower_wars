@@ -21,8 +21,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.client.extensions.common.IClientItemExtensions;
 import software.bernie.geckolib.animatable.GeoItem;
-import software.bernie.geckolib.animatable.client.RenderProvider;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
 import software.bernie.geckolib.core.animation.AnimationController;
@@ -38,7 +38,6 @@ public class ArkebuzItem extends Item implements GeoItem {
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    // Nazwy animacji muszą zgadzać się z nazwami z pliku arkebuz.animation.json
     private static final RawAnimation ANIM_IDLE = RawAnimation.begin().thenLoop("idle");
     private static final RawAnimation ANIM_RELOAD = RawAnimation.begin().thenPlay("reload");
     private static final RawAnimation ANIM_SHOOT = RawAnimation.begin().thenPlay("shoot");
@@ -59,13 +58,13 @@ public class ArkebuzItem extends Item implements GeoItem {
     }
 
     @Override
-    public AnimatableInstanceCache getAnimatableCache() {
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
         return this.cache;
     }
 
     @Override
-    public void createRenderer(Consumer<Object> consumer) {
-        consumer.accept(new RenderProvider() {
+    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
+        consumer.accept(new IClientItemExtensions() {
             private ArkebuzRenderer renderer;
 
             @Override
@@ -166,7 +165,6 @@ public class ArkebuzItem extends Item implements GeoItem {
 
     private void shoot(Level level, Player player, ItemStack stack) {
         if (!level.isClientSide) {
-            // Wyzwolenie animacji strzału GeckoLib
             triggerAnim(player, GeoItem.getOrAssignId(stack, (ServerLevel) level), "controller", "shoot");
 
             MusketBulletEntity bullet = new MusketBulletEntity(level, player);
@@ -245,6 +243,6 @@ public class ArkebuzItem extends Item implements GeoItem {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        return UseAnim.NONE; // Używamy UseAnim.NONE, by domyślna animacja łuku nie psuła pozycji modelu GeckoLib
+        return UseAnim.NONE;
     }
 }
