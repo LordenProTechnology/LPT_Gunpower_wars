@@ -279,6 +279,69 @@
 					}
 				}
 			}
+		},
+		"aim": {
+			"loop": true,
+			"animation_length": 2,
+			"bones": {
+				"group": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"1.0": {
+							"vector": [3, 0, 0]
+						},
+						"2.0": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"muszkiet": {
+					"rotation": {
+						"0.0": {
+							"vector": [90, 0, 0]
+						},
+						"1.0": {
+							"vector": [90.5, 0, 0],
+							"easing": "easeInBack"
+						},
+						"2.0": {
+							"vector": [90, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 29, 0]
+						},
+						"1.0": {
+							"vector": [0, 29.05, 0],
+							"easing": "easeInBack"
+						},
+						"2.0": {
+							"vector": [0, 29, 0]
+						}
+					}
+				},
+				"zamek": {
+					"rotation": {
+						"0.0": {
+							"vector": [60, 0, 0]
+						},
+						"2.0": {
+							"vector": [60, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 22.75, -11.5]
+						},
+						"2.0": {
+							"vector": [0, 22.75, -11.5]
+						}
+					}
+				}
+			}
 		}
 	}
 }
