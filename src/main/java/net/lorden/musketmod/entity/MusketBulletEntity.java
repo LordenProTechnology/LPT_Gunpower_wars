@@ -59,7 +59,7 @@ public class MusketBulletEntity extends AbstractArrow implements ItemSupplier {
         }
         if (this.inGround) {
             this.ticksInGround++;
-            if (this.ticksInGround >= 80 && !this.level().isClientSide()) {
+            if (this.ticksInGround >= 180 && !this.level().isClientSide()) {
                 this.discard();
             }
         }
