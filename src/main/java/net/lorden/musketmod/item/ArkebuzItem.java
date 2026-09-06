@@ -1,6 +1,8 @@
 package net.lorden.musketmod.item;
 
+import net.lorden.musketmod.client.renderer.ArkebuzRenderer;
 import net.lorden.musketmod.entity.MusketBulletEntity;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -19,14 +21,60 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.client.extensions.common.IClientItemExtensions;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
-public class ArkebuzItem extends Item {
+import java.util.function.Consumer;
+
+public class ArkebuzItem extends Item implements GeoItem {
     public static final int CHARGE_TIME = 180;
     public static final int RELOAD_COOLDOWN = 12;
     public static final int POST_SHOT_COOLDOWN = 20;
 
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
+    private static final RawAnimation ANIM_IDLE = RawAnimation.begin().thenLoop("idle");
+    private static final RawAnimation ANIM_RELOAD = RawAnimation.begin().thenPlay("reload");
+    private static final RawAnimation ANIM_SHOOT = RawAnimation.begin().thenPlay("shoot");
+
     public ArkebuzItem(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 2, event -> {
+            ItemStack stack = event.getData(software.bernie.geckolib.constant.DataTickets.ITEMSTACK);
+            if (stack != null && stack.hasTag() && stack.getTag().getInt("PullTicks") > 0) {
+                return event.setAndContinue(ANIM_RELOAD);
+            }
+            return event.setAndContinue(ANIM_IDLE);
+        }).triggerableAnim("shoot", ANIM_SHOOT));
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
+        consumer.accept(new IClientItemExtensions() {
+            private ArkebuzRenderer renderer;
+
+            @Override
+            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new ArkebuzRenderer();
+                }
+                return this.renderer;
+            }
+        });
     }
 
     @Override
@@ -49,7 +97,6 @@ public class ArkebuzItem extends Item {
         if (hasRamrod && (hasCartridge || hasPowderAndBall)) {
             CompoundTag tag = itemstack.getOrCreateTag();
             tag.putBoolean("IsAiming", false);
-            // Kartusz skraca czas ładowania o 50%
             tag.putBoolean("UsingCartridge", hasCartridge);
             player.startUsingItem(hand);
             return InteractionResultHolder.consume(itemstack);
@@ -86,7 +133,6 @@ public class ArkebuzItem extends Item {
                     consumeItem(player, ModItems.MUSKET_BALL.get());
                 }
 
-                // Uszkodzenie pobojczyka w lewej ręce o 1 punkt
                 ItemStack offhandStack = player.getOffhandItem();
                 if (offhandStack.is(ModItems.RAMROD.get())) {
                     offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
@@ -119,6 +165,8 @@ public class ArkebuzItem extends Item {
 
     private void shoot(Level level, Player player, ItemStack stack) {
         if (!level.isClientSide) {
+            triggerAnim(player, GeoItem.getOrAssignId(stack, (ServerLevel) level), "controller", "shoot");
+
             MusketBulletEntity bullet = new MusketBulletEntity(level, player);
             bullet.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 5.0F, 1.5F);
             bullet.pickup = AbstractArrow.Pickup.DISALLOWED;
@@ -195,6 +243,6 @@ public class ArkebuzItem extends Item {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        return UseAnim.BOW;
+        return UseAnim.NONE;
     }
 }
