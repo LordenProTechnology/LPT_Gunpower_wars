@@ -23,9 +23,6 @@ public class ClientModEvents {
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             // Rejestracja dla Arkebuza (poprawione .get())
-            ItemProperties.register(ModItems.ARKEBUZ.get(),
-                    new ResourceLocation(MusketMod.MOD_ID, "loaded"),
-                    (stack, level, entity, seed) -> ArkebuzItem.isLoaded(stack) ? 1.0F : 0.0F);
 
             ItemProperties.register(ModItems.GARLACZ.get(),
                     new ResourceLocation(MusketMod.MOD_ID, "loaded"),
