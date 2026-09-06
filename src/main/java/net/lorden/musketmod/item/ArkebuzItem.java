@@ -40,6 +40,7 @@ public class ArkebuzItem extends Item implements GeoItem {
 
     private static final RawAnimation ANIM_IDLE = RawAnimation.begin().thenLoop("idle");
     private static final RawAnimation ANIM_RELOAD = RawAnimation.begin().thenPlay("reload");
+    private static final RawAnimation ANIM_AIM = RawAnimation.begin().thenLoop("aim");
     private static final RawAnimation ANIM_SHOOT = RawAnimation.begin().thenPlay("shoot");
 
     public ArkebuzItem(Properties properties) {
@@ -50,8 +51,14 @@ public class ArkebuzItem extends Item implements GeoItem {
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "controller", 2, event -> {
             ItemStack stack = event.getData(software.bernie.geckolib.constant.DataTickets.ITEMSTACK);
-            if (stack != null && stack.hasTag() && stack.getTag().getInt("PullTicks") > 0) {
-                return event.setAndContinue(ANIM_RELOAD);
+            if (stack != null && stack.hasTag()) {
+                CompoundTag tag = stack.getTag();
+                if (tag.getBoolean("IsLoading")) {
+                    return event.setAndContinue(ANIM_RELOAD);
+                }
+                if (tag.getBoolean("IsAiming")) {
+                    return event.setAndContinue(ANIM_AIM);
+                }
             }
             return event.setAndContinue(ANIM_IDLE);
         }).triggerableAnim("shoot", ANIM_SHOOT));
@@ -97,6 +104,7 @@ public class ArkebuzItem extends Item implements GeoItem {
         if (hasRamrod && (hasCartridge || hasPowderAndBall)) {
             CompoundTag tag = itemstack.getOrCreateTag();
             tag.putBoolean("IsAiming", false);
+            tag.putBoolean("IsLoading", true);
             tag.putBoolean("UsingCartridge", hasCartridge);
             player.startUsingItem(hand);
             return InteractionResultHolder.consume(itemstack);
@@ -118,34 +126,34 @@ public class ArkebuzItem extends Item implements GeoItem {
             CompoundTag nbt = stack.getOrCreateTag();
             int usedDuration = this.getUseDuration(stack) - count;
 
-            boolean usingCartridge = nbt.getBoolean("UsingCartridge");
-            int requiredChargeTime = usingCartridge ? (CHARGE_TIME / 2) : CHARGE_TIME;
-
-            if (!isLoaded(stack) && !nbt.getBoolean("IsAiming")) {
+            if (nbt.getBoolean("IsLoading")) {
+                boolean usingCartridge = nbt.getBoolean("UsingCartridge");
+                int requiredChargeTime = usingCartridge ? (CHARGE_TIME / 2) : CHARGE_TIME;
                 nbt.putInt("PullTicks", usedDuration);
-            }
 
-            if (!level.isClientSide && !isLoaded(stack) && !nbt.getBoolean("IsAiming") && usedDuration >= requiredChargeTime) {
-                if (usingCartridge) {
-                    consumeItem(player, ModItems.PAPER_CARTRIDGE.get());
-                } else {
-                    consumeItem(player, Items.GUNPOWDER);
-                    consumeItem(player, ModItems.MUSKET_BALL.get());
+                if (!level.isClientSide && usedDuration >= requiredChargeTime) {
+                    if (usingCartridge) {
+                        consumeItem(player, ModItems.PAPER_CARTRIDGE.get());
+                    } else {
+                        consumeItem(player, Items.GUNPOWDER);
+                        consumeItem(player, ModItems.MUSKET_BALL.get());
+                    }
+
+                    ItemStack offhandStack = player.getOffhandItem();
+                    if (offhandStack.is(ModItems.RAMROD.get())) {
+                        offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
+                    }
+
+                    player.containerMenu.broadcastChanges();
+
+                    setLoaded(stack, true);
+                    nbt.putBoolean("IsLoading", false);
+                    nbt.remove("PullTicks");
+                    nbt.remove("UsingCartridge");
+                    player.getCooldowns().addCooldown(this, RELOAD_COOLDOWN);
+                    level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
+                    player.stopUsingItem();
                 }
-
-                ItemStack offhandStack = player.getOffhandItem();
-                if (offhandStack.is(ModItems.RAMROD.get())) {
-                    offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
-                }
-
-                player.containerMenu.broadcastChanges();
-
-                setLoaded(stack, true);
-                nbt.remove("PullTicks");
-                nbt.remove("UsingCartridge");
-                player.getCooldowns().addCooldown(this, RELOAD_COOLDOWN);
-                level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
-                player.releaseUsingItem();
             }
         }
     }
@@ -154,13 +162,17 @@ public class ArkebuzItem extends Item implements GeoItem {
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
         if (!(entity instanceof Player player)) return;
         CompoundTag nbt = stack.getOrCreateTag();
-        if (isLoaded(stack) && nbt.getBoolean("IsAiming")) {
+        int aimTicks = this.getUseDuration(stack) - timeLeft;
+
+        if (isLoaded(stack) && nbt.getBoolean("IsAiming") && aimTicks >= 5) {
             shoot(level, player, stack);
             setLoaded(stack, false);
         }
+
+        nbt.putBoolean("IsAiming", false);
+        nbt.putBoolean("IsLoading", false);
         nbt.remove("PullTicks");
         nbt.remove("UsingCartridge");
-        nbt.putBoolean("IsAiming", false);
     }
 
     private void shoot(Level level, Player player, ItemStack stack) {
