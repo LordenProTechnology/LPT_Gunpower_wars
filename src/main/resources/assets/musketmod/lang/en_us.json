@@ -1,12 +1,12 @@
 {
-  "item.musketmod.musket": "Muszkiet testowy",
-  "item.musketmod.musket_ball": "Kula do muszkietu",
-  "creativetab.lorden_tab": "Lorden musket mod",
-  "subtitles.musketmod.musket_shoot": "Wystrzał z muszkietu",
+  "item.musketmod.musket": "Combat Musket",
+  "item.musketmod.musket_ball": "Musket Ball",
+  "creativetab.lorden_tab": "Lorden Musket Mod",
+  "subtitles.musketmod.musket_shoot": "Musket shot",
   "item.musketmod.arkebuz": "Battle Arquebus",
-  "item.musketmod.ramrod": "Pobojczyk",
+  "item.musketmod.ramrod": "Ramrod",
   "item.musketmod.paper_cartridge": "Paper Cartridge",
   "item.musketmod.lead_shot": "Lead Shot",
-  "item.musketmod.heavy_musket": "Matchlock Musket",
+  "item.musketmod.heavy_musket": "Heavy Matchlock Musket",
   "item.musketmod.garlacz": "Blunderbuss"
 }
