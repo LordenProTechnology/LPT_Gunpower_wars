@@ -4,9 +4,9 @@
   "display": {
     "thirdperson_righthand": {
       "rotation": [
-        54.8,
-        -1.1,
-        4.89
+        70,
+        0,
+        0
       ],
       "translation": [
         0,
@@ -38,8 +38,8 @@
     },
     "firstperson_righthand": {
       "translation": [
-        9.75,
-        4.75,
+        3.5,
+        -3.25,
         -8
       ]
     },
@@ -91,9 +91,9 @@
     },
     "fixed": {
       "rotation": [
-        -86.99,
-        -35.13,
-        -84.8
+        -86.98999999999978,
+        -35.13000000000011,
+        -84.80000000000018
       ],
       "translation": [
         -2,
