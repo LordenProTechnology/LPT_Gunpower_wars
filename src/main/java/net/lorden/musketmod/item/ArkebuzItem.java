@@ -186,7 +186,8 @@ public class ArkebuzItem extends Item implements GeoItem {
         if (!level.isClientSide) {
             triggerAnim(player, GeoItem.getOrAssignId(stack, (ServerLevel) level), "controller", "shoot");
 
-            MusketBulletEntity bullet = new MusketBulletEntity(level, player);
+            // 28.0F obrażeń, 30% penetracji (0.30F) - one-shot bez zbroi oraz w pełnej skórzanej zbroi
+            MusketBulletEntity bullet = new MusketBulletEntity(level, player, 28.0F, 0.30F);
             bullet.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 5.0F, 1.5F);
             bullet.pickup = AbstractArrow.Pickup.DISALLOWED;
             level.addFreshEntity(bullet);
