@@ -32,6 +32,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.function.Consumer;
 
 public class ArkebuzItem extends Item implements GeoItem {
+    // 180 ticków / 20 = dokładnie 9.0 sekund
     public static final int CHARGE_TIME = 180;
     public static final int RELOAD_COOLDOWN = 12;
     public static final int POST_SHOT_COOLDOWN = 20;
@@ -127,11 +128,11 @@ public class ArkebuzItem extends Item implements GeoItem {
             int usedDuration = this.getUseDuration(stack) - count;
 
             if (nbt.getBoolean("IsLoading")) {
-                boolean usingCartridge = nbt.getBoolean("UsingCartridge");
-                int requiredChargeTime = usingCartridge ? (CHARGE_TIME / 2) : CHARGE_TIME;
                 nbt.putInt("PullTicks", usedDuration);
 
-                if (!level.isClientSide && usedDuration >= requiredChargeTime) {
+                // Czas ładowania wynosi dokładnie pełne CHARGE_TIME (9 sekund), aby dopasować animację
+                if (!level.isClientSide && usedDuration >= CHARGE_TIME) {
+                    boolean usingCartridge = nbt.getBoolean("UsingCartridge");
                     if (usingCartridge) {
                         consumeItem(player, ModItems.PAPER_CARTRIDGE.get());
                     } else {
@@ -225,8 +226,7 @@ public class ArkebuzItem extends Item implements GeoItem {
     @Override
     public int getBarWidth(ItemStack stack) {
         if (stack.hasTag() && stack.getTag().getInt("PullTicks") > 0 && !isLoaded(stack)) {
-            int maxTime = stack.getTag().getBoolean("UsingCartridge") ? (CHARGE_TIME / 2) : CHARGE_TIME;
-            return Math.min(13, Math.round((float) stack.getTag().getInt("PullTicks") * 13.0F / (float) maxTime));
+            return Math.min(13, Math.round((float) stack.getTag().getInt("PullTicks") * 13.0F / (float) CHARGE_TIME));
         }
         return Math.round(13.0F - (float) stack.getDamageValue() * 13.0F / (float) stack.getMaxDamage());
     }
