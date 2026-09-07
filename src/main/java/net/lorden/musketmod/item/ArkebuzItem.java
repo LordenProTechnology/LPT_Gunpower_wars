@@ -32,9 +32,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.function.Consumer;
 
 public class ArkebuzItem extends Item implements GeoItem {
-    // 180 ticków / 20 = dokładnie 9.0 sekund
-    public static final int CHARGE_TIME = 180;
-    public static final int RELOAD_COOLDOWN = 12;
+    public static final int CHARGE_TIME = 180; // 9.0 sekund
+    public static final int RELOAD_COOLDOWN = 10;
     public static final int POST_SHOT_COOLDOWN = 20;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
@@ -87,37 +86,49 @@ public class ArkebuzItem extends Item implements GeoItem {
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack itemstack = player.getItemInHand(hand);
-        if (player.getCooldowns().isOnCooldown(this)) return InteractionResultHolder.fail(itemstack);
-        if (hand == InteractionHand.OFF_HAND) return InteractionResultHolder.pass(itemstack);
+        ItemStack stack = player.getItemInHand(hand);
+        if (player.getCooldowns().isOnCooldown(this)) return InteractionResultHolder.fail(stack);
+        if (hand == InteractionHand.OFF_HAND) return InteractionResultHolder.pass(stack);
 
-        if (isLoaded(itemstack)) {
-            itemstack.getOrCreateTag().putBoolean("IsAiming", true);
-            player.startUsingItem(hand);
-            return InteractionResultHolder.consume(itemstack);
+        CompoundTag tag = stack.getOrCreateTag();
+
+        // 1. Jeśli broń jest załadowana
+        if (isLoaded(stack)) {
+            // Jeśli gracz już celuje -> ten klik odpala STRZAŁ
+            if (tag.getBoolean("IsAiming")) {
+                shoot(level, player, stack);
+                setLoaded(stack, false);
+                tag.putBoolean("IsAiming", false);
+                return InteractionResultHolder.consume(stack);
+            } else {
+                // Pierwszy klik po naładowaniu -> przełącza w tryb celowania
+                tag.putBoolean("IsAiming", true);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
+                return InteractionResultHolder.consume(stack);
+            }
         }
 
+        // 2. Jeśli broń nie jest załadowana -> zaczynamy trzymanie PPM do ładowania
         boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
         boolean hasCartridge = player.getInventory().contains(new ItemStack(ModItems.PAPER_CARTRIDGE.get()));
         boolean hasPowderAndBall = player.getInventory().contains(new ItemStack(Items.GUNPOWDER))
                 && player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
 
         if (hasRamrod && (hasCartridge || hasPowderAndBall)) {
-            CompoundTag tag = itemstack.getOrCreateTag();
             tag.putBoolean("IsAiming", false);
             tag.putBoolean("IsLoading", true);
             tag.putBoolean("UsingCartridge", hasCartridge);
             player.startUsingItem(hand);
-            return InteractionResultHolder.consume(itemstack);
+            return InteractionResultHolder.consume(stack);
         } else {
             if (level.isClientSide) {
                 if (!hasRamrod) {
                     player.displayClientMessage(Component.literal("Musisz trzymac pobojczyk w lewej rece!"), true);
                 } else {
-                    player.displayClientMessage(Component.literal("Brak kartusza lub prochu i kul!"), true);
+                    player.displayClientMessage(Component.literal("Brak amunicji!"), true);
                 }
             }
-            return InteractionResultHolder.fail(itemstack);
+            return InteractionResultHolder.fail(stack);
         }
     }
 
@@ -130,7 +141,7 @@ public class ArkebuzItem extends Item implements GeoItem {
             if (nbt.getBoolean("IsLoading")) {
                 nbt.putInt("PullTicks", usedDuration);
 
-                // Czas ładowania wynosi dokładnie pełne CHARGE_TIME (9 sekund), aby dopasować animację
+                // Dokładnie 180 ticków (9 sekund)
                 if (!level.isClientSide && usedDuration >= CHARGE_TIME) {
                     boolean usingCartridge = nbt.getBoolean("UsingCartridge");
                     if (usingCartridge) {
@@ -151,8 +162,11 @@ public class ArkebuzItem extends Item implements GeoItem {
                     nbt.putBoolean("IsLoading", false);
                     nbt.remove("PullTicks");
                     nbt.remove("UsingCartridge");
+
                     player.getCooldowns().addCooldown(this, RELOAD_COOLDOWN);
                     level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
+
+                    // Przerywamy używanie, by odkliknąć przycisk
                     player.stopUsingItem();
                 }
             }
@@ -161,16 +175,8 @@ public class ArkebuzItem extends Item implements GeoItem {
 
     @Override
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
-        if (!(entity instanceof Player player)) return;
+        // Jeśli gracz puścił PPM przed ukończeniem 9 sekund -> reset ładowania
         CompoundTag nbt = stack.getOrCreateTag();
-        int aimTicks = this.getUseDuration(stack) - timeLeft;
-
-        if (isLoaded(stack) && nbt.getBoolean("IsAiming") && aimTicks >= 5) {
-            shoot(level, player, stack);
-            setLoaded(stack, false);
-        }
-
-        nbt.putBoolean("IsAiming", false);
         nbt.putBoolean("IsLoading", false);
         nbt.remove("PullTicks");
         nbt.remove("UsingCartridge");
@@ -244,7 +250,7 @@ public class ArkebuzItem extends Item implements GeoItem {
         return stack.hasTag() && stack.getTag().getBoolean("Loaded");
     }
 
-    private static void setLoaded(ItemStack stack, boolean loaded) {
+    public static void setLoaded(ItemStack stack, boolean loaded) {
         stack.getOrCreateTag().putBoolean("Loaded", loaded);
     }
 
