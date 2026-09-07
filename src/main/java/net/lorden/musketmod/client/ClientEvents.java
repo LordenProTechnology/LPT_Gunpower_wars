@@ -23,7 +23,8 @@ public class ClientEvents {
     public static void onRenderHand(RenderHandEvent event) {
         if (event.getHand() == InteractionHand.OFF_HAND) {
             Player player = Minecraft.getInstance().player;
-            if (player != null && isGunLoading(player)) {
+            // Ukrywa dłoń i pobojczyk w FPP podczas ładowania ORAZ celowania
+            if (player != null && shouldHideOffhand(player)) {
                 event.setCanceled(true);
             }
         }
@@ -34,20 +35,15 @@ public class ClientEvents {
         if (event.getEntity() instanceof Player player) {
             ItemStack mainHand = player.getMainHandItem();
 
-            // 1. Obsługa znikania pobojczyka podczas ładowania
-            if (isGunLoading(player)) {
+            // 1. Schowanie pobojczyka w TPP w trakcie ładowania lub celowania
+            if (shouldHideOffhand(player)) {
                 cachedOffhand = player.getOffhandItem();
                 if (!cachedOffhand.isEmpty()) {
                     player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
                 }
-                if (event.getRenderer().getModel() instanceof PlayerModel<?> playerModel) {
-                    playerModel.leftArmPose = HumanoidModel.ArmPose.EMPTY;
-                    playerModel.leftArm.visible = true;
-                    playerModel.leftSleeve.visible = true;
-                }
             }
 
-            // 2. Pozycja trzymania kuszy w trakcie celowania (aim)
+            // 2. Pozycja rąk jak przy kuszy w trakcie celowania
             if (mainHand.hasTag() && mainHand.getTag().getBoolean("IsAiming")) {
                 if (event.getRenderer().getModel() instanceof PlayerModel<?> playerModel) {
                     boolean isRightHanded = player.getMainArm() == HumanoidArm.RIGHT;
@@ -71,8 +67,11 @@ public class ClientEvents {
         }
     }
 
-    private static boolean isGunLoading(Player player) {
+    private static boolean shouldHideOffhand(Player player) {
         ItemStack main = player.getMainHandItem();
-        return main.hasTag() && main.getTag().getBoolean("IsLoading");
+        if (main.hasTag()) {
+            return main.getTag().getBoolean("IsLoading") || main.getTag().getBoolean("IsAiming");
+        }
+        return false;
     }
 }
