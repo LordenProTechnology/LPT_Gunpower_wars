@@ -32,8 +32,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.function.Consumer;
 
 public class ArkebuzItem extends Item implements GeoItem {
-    public static final int CHARGE_TIME = 180; // 9.0 sekund
-    public static final int RELOAD_COOLDOWN = 10;
+    public static final int CHARGE_TIME = 180; // 9.0 sekund ładowania
     public static final int POST_SHOT_COOLDOWN = 20;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
@@ -92,23 +91,23 @@ public class ArkebuzItem extends Item implements GeoItem {
 
         CompoundTag tag = stack.getOrCreateTag();
 
-        // 1. Jeśli broń jest załadowana
+        // 1. Jeśli broń jest już załadowana
         if (isLoaded(stack)) {
-            // Jeśli gracz już celuje -> ten klik odpala STRZAŁ
+            // Jeśli tryb celowania jest aktywny -> ten klik oddaje STRZAŁ
             if (tag.getBoolean("IsAiming")) {
                 shoot(level, player, stack);
                 setLoaded(stack, false);
                 tag.putBoolean("IsAiming", false);
                 return InteractionResultHolder.consume(stack);
             } else {
-                // Pierwszy klik po naładowaniu -> przełącza w tryb celowania
+                // Jeśli broń była załadowana, ale celowanie z jakiegoś powodu było wyłączone -> włącz celowanie
                 tag.putBoolean("IsAiming", true);
                 level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
                 return InteractionResultHolder.consume(stack);
             }
         }
 
-        // 2. Jeśli broń nie jest załadowana -> zaczynamy trzymanie PPM do ładowania
+        // 2. Jeśli broń jest pusta -> sprawdzamy składniki i zaczynamy ładowanie
         boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
         boolean hasCartridge = player.getInventory().contains(new ItemStack(ModItems.PAPER_CARTRIDGE.get()));
         boolean hasPowderAndBall = player.getInventory().contains(new ItemStack(Items.GUNPOWDER))
@@ -117,6 +116,7 @@ public class ArkebuzItem extends Item implements GeoItem {
         if (hasRamrod && (hasCartridge || hasPowderAndBall)) {
             tag.putBoolean("IsAiming", false);
             tag.putBoolean("IsLoading", true);
+            tag.putBoolean("ReadyToAim", false);
             tag.putBoolean("UsingCartridge", hasCartridge);
             player.startUsingItem(hand);
             return InteractionResultHolder.consume(stack);
@@ -141,8 +141,25 @@ public class ArkebuzItem extends Item implements GeoItem {
             if (nbt.getBoolean("IsLoading")) {
                 nbt.putInt("PullTicks", usedDuration);
 
-                // Dokładnie 180 ticków (9 sekund)
-                if (!level.isClientSide && usedDuration >= CHARGE_TIME) {
+                // Po upływie 9 sekund (180 ticków) ładowanie jest gotowe do sfinalizowania
+                if (usedDuration >= CHARGE_TIME && !nbt.getBoolean("ReadyToAim")) {
+                    nbt.putBoolean("ReadyToAim", true);
+                    level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
+        if (!(entity instanceof Player player)) return;
+        CompoundTag nbt = stack.getOrCreateTag();
+
+        // Gracz puszcza przycisk (odklikanie)
+        if (nbt.getBoolean("IsLoading")) {
+            // Jeśli trzymał pełne 9 sekund (ReadyToAim == true) -> przechodzimy w tryb celowania
+            if (nbt.getBoolean("ReadyToAim")) {
+                if (!level.isClientSide) {
                     boolean usingCartridge = nbt.getBoolean("UsingCartridge");
                     if (usingCartridge) {
                         consumeItem(player, ModItems.PAPER_CARTRIDGE.get());
@@ -157,29 +174,27 @@ public class ArkebuzItem extends Item implements GeoItem {
                     }
 
                     player.containerMenu.broadcastChanges();
-
-                    setLoaded(stack, true);
-                    nbt.putBoolean("IsLoading", false);
-                    nbt.remove("PullTicks");
-                    nbt.remove("UsingCartridge");
-
-                    player.getCooldowns().addCooldown(this, RELOAD_COOLDOWN);
-                    level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
-
-                    // Przerywamy używanie, by odkliknąć przycisk
-                    player.stopUsingItem();
                 }
+
+                setLoaded(stack, true);
+                nbt.putBoolean("IsLoading", false);
+                nbt.putBoolean("ReadyToAim", false);
+                nbt.remove("PullTicks");
+                nbt.remove("UsingCartridge");
+
+                // Odkliknięcie załącza tryb celowania
+                nbt.putBoolean("IsAiming", true);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
+
+                // Krótki cooldown (6 ticków = 0.3s), by odkliknięcie nie odpaliło przypadkowego natychmiastowego strzału
+                player.getCooldowns().addCooldown(this, 6);
+            } else {
+                // Gracz puścił PPM za wcześnie -> anulowanie ładowania
+                nbt.putBoolean("IsLoading", false);
+                nbt.remove("PullTicks");
+                nbt.remove("UsingCartridge");
             }
         }
-    }
-
-    @Override
-    public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
-        // Jeśli gracz puścił PPM przed ukończeniem 9 sekund -> reset ładowania
-        CompoundTag nbt = stack.getOrCreateTag();
-        nbt.putBoolean("IsLoading", false);
-        nbt.remove("PullTicks");
-        nbt.remove("UsingCartridge");
     }
 
     private void shoot(Level level, Player player, ItemStack stack) {
