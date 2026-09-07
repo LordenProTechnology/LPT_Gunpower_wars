@@ -67,7 +67,7 @@ public class MusketBulletEntity extends AbstractArrow implements ItemSupplier {
 
     @Override
     protected void onHitEntity(EntityHitResult result) {
-        super.onHitEntity(result);
+        // NIE wywołujemy super.onHitEntity(result), bo nadpisuje obrażenia i daje invulnerableTime!
         Entity target = result.getEntity();
 
         if (!this.level().isClientSide() && target instanceof LivingEntity livingTarget) {
@@ -76,16 +76,22 @@ public class MusketBulletEntity extends AbstractArrow implements ItemSupplier {
             float bypassedDamage = this.totalDamage * this.armorPenetration;
             float standardDamage = this.totalDamage * (1.0F - this.armorPenetration);
 
+            // 1. Zwykłe obrażenia pocisku (pancerz je redukuje)
             if (standardDamage > 0) {
                 DamageSource normalSource = this.damageSources().arrow(this, owner != null ? owner : this);
                 livingTarget.hurt(normalSource, standardDamage);
             }
 
+            // 2. Zerujemy czas nietykalności, by druga pula obrażeń nie została odrzucona
+            livingTarget.invulnerableTime = 0;
+
+            // 3. Obrażenia penetrujące pancerz (magia ignoruje pancerz)
             if (bypassedDamage > 0) {
                 DamageSource bypassSource = this.damageSources().magic();
                 livingTarget.hurt(bypassSource, bypassedDamage);
             }
 
+            this.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 1.2F);
             this.discard();
         }
     }
