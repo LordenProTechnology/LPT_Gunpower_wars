@@ -17,7 +17,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -93,39 +92,36 @@ public class ArkebuzItem extends Item implements GeoItem {
 
         // 1. Jeśli broń jest już załadowana
         if (isLoaded(stack)) {
-            // Jeśli tryb celowania jest aktywny -> ten klik oddaje STRZAŁ
             if (tag.getBoolean("IsAiming")) {
                 shoot(level, player, stack);
                 setLoaded(stack, false);
                 tag.putBoolean("IsAiming", false);
                 return InteractionResultHolder.consume(stack);
             } else {
-                // Jeśli broń była załadowana, ale celowanie z jakiegoś powodu było wyłączone -> włącz celowanie
                 tag.putBoolean("IsAiming", true);
                 level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
                 return InteractionResultHolder.consume(stack);
             }
         }
 
-        // 2. Jeśli broń jest pusta -> sprawdzamy składniki i zaczynamy ładowanie
+        // 2. Weryfikacja: pobojczyk w offhandzie + kula w ekwipunku + napełniona prochownica na pasku
         boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
-        boolean hasCartridge = player.getInventory().contains(new ItemStack(ModItems.PAPER_CARTRIDGE.get()));
-        boolean hasPowderAndBall = player.getInventory().contains(new ItemStack(Items.GUNPOWDER))
-                && player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
+        ItemStack flask = getPowderFlaskFromHotbar(player);
+        boolean hasFlaskPowder = flask != null && PowderFlaskItem.getPowderCount(flask) > 0;
+        boolean hasBall = player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
 
-        if (hasRamrod && (hasCartridge || hasPowderAndBall)) {
+        if (hasRamrod && hasFlaskPowder && hasBall) {
             tag.putBoolean("IsAiming", false);
             tag.putBoolean("IsLoading", true);
             tag.putBoolean("ReadyToAim", false);
-            tag.putBoolean("UsingCartridge", hasCartridge);
             player.startUsingItem(hand);
             return InteractionResultHolder.consume(stack);
         } else {
             if (level.isClientSide) {
                 if (!hasRamrod) {
-                    player.displayClientMessage(Component.literal("Musisz trzymac pobojczyk w lewej rece!"), true);
+                    player.displayClientMessage(Component.translatable("message.musketmod.need_ramrod"), true);
                 } else {
-                    player.displayClientMessage(Component.literal("Brak amunicji!"), true);
+                    player.displayClientMessage(Component.translatable("message.musketmod.no_ammo"), true);
                 }
             }
             return InteractionResultHolder.fail(stack);
@@ -141,7 +137,6 @@ public class ArkebuzItem extends Item implements GeoItem {
             if (nbt.getBoolean("IsLoading")) {
                 nbt.putInt("PullTicks", usedDuration);
 
-                // Po upływie 9 sekund (180 ticków) ładowanie jest gotowe do sfinalizowania
                 if (usedDuration >= CHARGE_TIME && !nbt.getBoolean("ReadyToAim")) {
                     nbt.putBoolean("ReadyToAim", true);
                     level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
@@ -155,19 +150,18 @@ public class ArkebuzItem extends Item implements GeoItem {
         if (!(entity instanceof Player player)) return;
         CompoundTag nbt = stack.getOrCreateTag();
 
-        // Gracz puszcza przycisk (odklikanie)
         if (nbt.getBoolean("IsLoading")) {
-            // Jeśli trzymał pełne 9 sekund (ReadyToAim == true) -> przechodzimy w tryb celowania
             if (nbt.getBoolean("ReadyToAim")) {
                 if (!level.isClientSide) {
-                    boolean usingCartridge = nbt.getBoolean("UsingCartridge");
-                    if (usingCartridge) {
-                        consumeItem(player, ModItems.PAPER_CARTRIDGE.get());
-                    } else {
-                        consumeItem(player, Items.GUNPOWDER);
-                        consumeItem(player, ModItems.MUSKET_BALL.get());
+                    // Pobranie 1 porcji prochu z prochownicy
+                    ItemStack flaskStack = getPowderFlaskFromHotbar(player);
+                    if (flaskStack != null) {
+                        PowderFlaskItem.consumePowder(flaskStack, 1);
                     }
+                    // Zużycie ołowianej kuli
+                    consumeItem(player, ModItems.MUSKET_BALL.get());
 
+                    // Uszkodzenie pobojczyka
                     ItemStack offhandStack = player.getOffhandItem();
                     if (offhandStack.is(ModItems.RAMROD.get())) {
                         offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
@@ -180,19 +174,14 @@ public class ArkebuzItem extends Item implements GeoItem {
                 nbt.putBoolean("IsLoading", false);
                 nbt.putBoolean("ReadyToAim", false);
                 nbt.remove("PullTicks");
-                nbt.remove("UsingCartridge");
 
-                // Odkliknięcie załącza tryb celowania
                 nbt.putBoolean("IsAiming", true);
                 level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
 
-                // Krótki cooldown (6 ticków = 0.3s), by odkliknięcie nie odpaliło przypadkowego natychmiastowego strzału
                 player.getCooldowns().addCooldown(this, 6);
             } else {
-                // Gracz puścił PPM za wcześnie -> anulowanie ładowania
                 nbt.putBoolean("IsLoading", false);
                 nbt.remove("PullTicks");
-                nbt.remove("UsingCartridge");
             }
         }
     }
@@ -216,6 +205,16 @@ public class ArkebuzItem extends Item implements GeoItem {
             Vec3 look = player.getLookAngle();
             player.push(-look.x * 0.8, 0.1, -look.z * 0.8);
         }
+    }
+
+    public static ItemStack getPowderFlaskFromHotbar(Player player) {
+        for (int i = 0; i < 9; i++) {
+            ItemStack s = player.getInventory().getItem(i);
+            if (s.is(ModItems.POWDER_FLASK.get())) {
+                return s;
+            }
+        }
+        return null;
     }
 
     private void consumeItem(Player player, Item item) {

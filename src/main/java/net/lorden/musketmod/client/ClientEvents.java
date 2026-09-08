@@ -4,11 +4,13 @@ import net.lorden.musketmod.MusketMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -73,5 +75,19 @@ public class ClientEvents {
             return main.getTag().getBoolean("IsLoading") || main.getTag().getBoolean("IsAiming");
         }
         return false;
+    }
+
+    // Rejestracja warstwy renderowania prochownicy na szynie MOD
+    @Mod.EventBusSubscriber(modid = MusketMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    public static class ModBusEvents {
+        @SubscribeEvent
+        public static void registerLayers(EntityRenderersEvent.AddLayers event) {
+            for (String skinType : event.getSkins()) {
+                PlayerRenderer renderer = event.getSkin(skinType);
+                if (renderer != null) {
+                    renderer.addLayer(new PowderFlaskLayer(renderer));
+                }
+            }
+        }
     }
 }

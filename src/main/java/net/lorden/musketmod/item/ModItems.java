@@ -20,6 +20,9 @@ public class ModItems {
     public static final RegistryObject<Item> LEAD_SHOT = ITEMS.register("lead_shot",
             () -> new Item(new Item.Properties()));
 
+    public static final RegistryObject<Item> POWDER_FLASK = ITEMS.register("powder_flask",
+            () -> new PowderFlaskItem(new Item.Properties()));
+
     public static final RegistryObject<Item> RAMROD = ITEMS.register("ramrod",
             () -> new Item(new Item.Properties().durability(128)));
     // Broń Dystansowa

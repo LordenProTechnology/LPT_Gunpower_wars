@@ -21,6 +21,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.MUSKET.get());
                         output.accept(ModItems.MUSKET_BALL.get());
                         output.accept(ModItems.PAPER_CARTRIDGE.get());
+                        output.accept(ModItems.POWDER_FLASK.get());
                         output.accept(ModItems.LEAD_SHOT.get());
                         output.accept(ModItems.RAMROD.get());
                         output.accept(ModItems.ARKEBUZ.get());

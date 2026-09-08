@@ -1,12 +1,18 @@
 {
   "item.musketmod.musket": "Combat Musket",
   "item.musketmod.musket_ball": "Musket Ball",
-  "creativetab.lorden_tab": "Lorden Musket Mod",
+  "creativetab.lorden_tab": "LPT GUNPOWEDER WARS",
   "subtitles.musketmod.musket_shoot": "Musket shot",
   "item.musketmod.arkebuz": "Battle Arquebus",
   "item.musketmod.ramrod": "Ramrod",
   "item.musketmod.paper_cartridge": "Paper Cartridge",
   "item.musketmod.lead_shot": "Lead Shot",
   "item.musketmod.heavy_musket": "Heavy Matchlock Musket",
-  "item.musketmod.garlacz": "Blunderbuss"
+  "item.musketmod.garlacz": "Blunderbuss",
+  "message.musketmod.need_ramrod": "You must hold a ramrod in your offhand!",
+  "message.musketmod.no_ammo": "No ammunition!",
+  "item.musketmod.powder_flask": "Powder Flask",
+  "tooltip.musketmod.powder_flask": "Powder: %s / %s",
+  "key.categories.musketmod": "LPT GUNPOWEDER WARS",
+  "key.musketmod.freelook": "Freelook"
 }
