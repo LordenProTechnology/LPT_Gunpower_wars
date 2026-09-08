@@ -24,21 +24,17 @@ public class ArkebuzRenderer extends GeoItemRenderer<ArkebuzItem> {
         // 1. WIDOK Z TRZECIEJ OSOBY (TPP) W TRAKCIE CELOWANIA
         if (transformType == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND && isAiming) {
             // Pozycja na wysokości klatki piersiowej i dłoni kuszy
-            poseStack.translate(-0.20F, 0.18F, -0.42F);
+            poseStack.translate(-0.0F, -0.72F, 0.22F);
 
-            // Neutralizacja kąta 70° z Twojego JSON-a
-            poseStack.mulPose(Axis.XP.rotationDegrees(-70.0F));
+            // cwelu jak mi jeszcze raz będziesz neutralizować pliki zneutralizuje ci matke
 
-            // Obrót lufy wprost przed siebie (zamiast w poprzek klatki)
-            poseStack.mulPose(Axis.YP.rotationDegrees(0.0F));
-            poseStack.mulPose(Axis.ZP.rotationDegrees(-180.0F));
         }
 
         // 2. WIDOK Z PIERWSZEJ OSOBY (FPP) W TRAKCIE CELOWANIA
         if (transformType == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND && isAiming) {
             // Wyśrodkowanie przyrządów celowniczych pod krzyżyk
-            poseStack.translate(-0.45F, 0.10F, 0.20F);
-            poseStack.mulPose(Axis.YP.rotationDegrees(5.0F));
+            poseStack.translate(-0.0F, 0.10F, 0.0F);
+            poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F));
         }
 
         super.renderByItem(stack, transformType, poseStack, bufferSource, packedLight, packedOverlay);
