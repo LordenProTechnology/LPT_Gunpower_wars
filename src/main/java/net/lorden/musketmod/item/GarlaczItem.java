@@ -1,6 +1,8 @@
 package net.lorden.musketmod.item;
 
+import net.lorden.musketmod.client.renderer.GarlaczRenderer;
 import net.lorden.musketmod.entity.MusketBulletEntity;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -15,50 +17,113 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.client.extensions.common.IClientItemExtensions;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
-public class GarlaczItem extends Item {
-    public static final int CHARGE_TIME = 80;        // 4 sekundy ładowania
-    public static final int RELOAD_COOLDOWN = 15;
-    public static final int POST_SHOT_COOLDOWN = 30; // Dłuższy cooldown po salwie
+import java.util.function.Consumer;
+
+public class GarlaczItem extends Item implements GeoItem {
+    public static final int CHARGE_TIME = 140; // 7.0 sekund ładowania (krótszy niż arkebuz)
+    public static final int POST_SHOT_COOLDOWN = 25;
+    public static final int PELLETS_COUNT = 7; // Ilość śrutu na jeden strzał
+
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
+    private static final RawAnimation ANIM_IDLE = RawAnimation.begin().thenLoop("idle");
+    private static final RawAnimation ANIM_RELOAD = RawAnimation.begin().thenPlay("reload");
+    private static final RawAnimation ANIM_AIM = RawAnimation.begin().thenLoop("aim");
+    private static final RawAnimation ANIM_SHOOT = RawAnimation.begin().thenPlay("shoot");
 
     public GarlaczItem(Properties properties) {
         super(properties);
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack itemstack = player.getItemInHand(hand);
-        if (player.getCooldowns().isOnCooldown(this)) return InteractionResultHolder.fail(itemstack);
-        if (hand == InteractionHand.OFF_HAND) return InteractionResultHolder.pass(itemstack);
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 2, event -> {
+            ItemStack stack = event.getData(software.bernie.geckolib.constant.DataTickets.ITEMSTACK);
+            if (stack != null && stack.hasTag()) {
+                CompoundTag tag = stack.getTag();
+                if (tag.getBoolean("IsLoading")) {
+                    return event.setAndContinue(ANIM_RELOAD);
+                }
+                if (tag.getBoolean("IsAiming")) {
+                    return event.setAndContinue(ANIM_AIM);
+                }
+            }
+            return event.setAndContinue(ANIM_IDLE);
+        }).triggerableAnim("shoot", ANIM_SHOOT));
+    }
 
-        if (isLoaded(itemstack)) {
-            itemstack.getOrCreateTag().putBoolean("IsAiming", true);
-            player.startUsingItem(hand);
-            return InteractionResultHolder.consume(itemstack);
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
+        consumer.accept(new IClientItemExtensions() {
+            private GarlaczRenderer renderer;
+
+            @Override
+            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new GarlaczRenderer();
+                }
+                return this.renderer;
+            }
+        });
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (player.getCooldowns().isOnCooldown(this)) return InteractionResultHolder.fail(stack);
+        if (hand == InteractionHand.OFF_HAND) return InteractionResultHolder.pass(stack);
+
+        CompoundTag tag = stack.getOrCreateTag();
+
+        if (isLoaded(stack)) {
+            if (tag.getBoolean("IsAiming")) {
+                shoot(level, player, stack);
+                setLoaded(stack, false);
+                tag.putBoolean("IsAiming", false);
+                return InteractionResultHolder.consume(stack);
+            } else {
+                tag.putBoolean("IsAiming", true);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
+                return InteractionResultHolder.consume(stack);
+            }
         }
 
         boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
-        boolean hasGunpowder = player.getInventory().contains(new ItemStack(Items.GUNPOWDER));
-        // Garłacz wymaga dedykowanego śrutu, brak obsługi kartusza
-        boolean hasSrut = player.getInventory().contains(new ItemStack(ModItems.LEAD_SHOT.get()));
+        ItemStack flask = ArkebuzItem.getPowderFlaskFromHotbar(player);
+        boolean hasFlaskPowder = flask != null && PowderFlaskItem.getPowderCount(flask) > 0;
+        boolean hasBall = player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
 
-        if (hasRamrod && hasGunpowder && hasSrut) {
-            itemstack.getOrCreateTag().putBoolean("IsAiming", false);
+        if (hasRamrod && hasFlaskPowder && hasBall) {
+            tag.putBoolean("IsAiming", false);
+            tag.putBoolean("IsLoading", true);
+            tag.putBoolean("ReadyToAim", false);
             player.startUsingItem(hand);
-            return InteractionResultHolder.consume(itemstack);
+            return InteractionResultHolder.consume(stack);
         } else {
             if (level.isClientSide) {
                 if (!hasRamrod) {
-                    player.displayClientMessage(Component.literal("Musisz trzymac pobojczyk w lewej rece!"), true);
+                    player.displayClientMessage(Component.translatable("message.musketmod.need_ramrod"), true);
                 } else {
-                    player.displayClientMessage(Component.literal("Garłacz wymaga prochu i śrutu ołowianego!"), true);
+                    player.displayClientMessage(Component.translatable("message.musketmod.no_ammo"), true);
                 }
             }
-            return InteractionResultHolder.fail(itemstack);
+            return InteractionResultHolder.fail(stack);
         }
     }
 
@@ -68,26 +133,13 @@ public class GarlaczItem extends Item {
             CompoundTag nbt = stack.getOrCreateTag();
             int usedDuration = this.getUseDuration(stack) - count;
 
-            if (!isLoaded(stack) && !nbt.getBoolean("IsAiming")) {
+            if (nbt.getBoolean("IsLoading")) {
                 nbt.putInt("PullTicks", usedDuration);
-            }
 
-            if (!level.isClientSide && !isLoaded(stack) && !nbt.getBoolean("IsAiming") && usedDuration >= CHARGE_TIME) {
-                consumeItem(player, Items.GUNPOWDER);
-                consumeItem(player, ModItems.LEAD_SHOT.get());
-
-                ItemStack offhandStack = player.getOffhandItem();
-                if (offhandStack.is(ModItems.RAMROD.get())) {
-                    offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
+                if (usedDuration >= CHARGE_TIME && !nbt.getBoolean("ReadyToAim")) {
+                    nbt.putBoolean("ReadyToAim", true);
+                    level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 1.0F);
                 }
-
-                player.containerMenu.broadcastChanges();
-
-                setLoaded(stack, true);
-                nbt.remove("PullTicks");
-                player.getCooldowns().addCooldown(this, RELOAD_COOLDOWN);
-                level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CROSSBOW_LOADING_END, SoundSource.PLAYERS, 1.0F, 0.8F);
-                player.releaseUsingItem();
             }
         }
     }
@@ -96,20 +148,48 @@ public class GarlaczItem extends Item {
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeLeft) {
         if (!(entity instanceof Player player)) return;
         CompoundTag nbt = stack.getOrCreateTag();
-        if (isLoaded(stack) && nbt.getBoolean("IsAiming")) {
-            shoot(level, player, stack);
-            setLoaded(stack, false);
+
+        if (nbt.getBoolean("IsLoading")) {
+            if (nbt.getBoolean("ReadyToAim")) {
+                if (!level.isClientSide) {
+                    ItemStack flaskStack = ArkebuzItem.getPowderFlaskFromHotbar(player);
+                    if (flaskStack != null) {
+                        PowderFlaskItem.consumePowder(flaskStack, 1);
+                    }
+                    consumeItem(player, ModItems.MUSKET_BALL.get());
+
+                    ItemStack offhandStack = player.getOffhandItem();
+                    if (offhandStack.is(ModItems.RAMROD.get())) {
+                        offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
+                    }
+
+                    player.containerMenu.broadcastChanges();
+                }
+
+                setLoaded(stack, true);
+                nbt.putBoolean("IsLoading", false);
+                nbt.putBoolean("ReadyToAim", false);
+                nbt.remove("PullTicks");
+
+                nbt.putBoolean("IsAiming", true);
+                level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_GENERIC, SoundSource.PLAYERS, 0.8F, 1.2F);
+
+                player.getCooldowns().addCooldown(this, 6);
+            } else {
+                nbt.putBoolean("IsLoading", false);
+                nbt.remove("PullTicks");
+            }
         }
-        nbt.remove("PullTicks");
-        nbt.putBoolean("IsAiming", false);
     }
 
     private void shoot(Level level, Player player, ItemStack stack) {
         if (!level.isClientSide) {
-            // Wystrzelenie wiązki 7 śrucin o mniejszych obrażeniach (po 7 DMG każda) i dużym rozrzucie (8.0F)
-            for (int i = 0; i < 7; i++) {
-                MusketBulletEntity bullet = new MusketBulletEntity(level, player, 7.0F, 0.30F);
-                bullet.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 3.8F, 8.0F);
+            triggerAnim(player, GeoItem.getOrAssignId(stack, (ServerLevel) level), "controller", "shoot");
+
+            // Wystrzał chmary śrutu z dużym rozrzutem (inaccuracy 9.0F)
+            for (int i = 0; i < PELLETS_COUNT; i++) {
+                MusketBulletEntity bullet = new MusketBulletEntity(level, player, 14.0F, 0.15F);
+                bullet.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 4.0F, 9.0F);
                 bullet.pickup = AbstractArrow.Pickup.DISALLOWED;
                 level.addFreshEntity(bullet);
             }
@@ -121,17 +201,17 @@ public class GarlaczItem extends Item {
 
             player.getCooldowns().addCooldown(this, POST_SHOT_COOLDOWN);
 
-            // Masywny odrzut w tył
+            // Silniejszy odrzut garłacza
             Vec3 look = player.getLookAngle();
-            player.push(-look.x * 1.6, 0.2, -look.z * 1.6);
+            player.push(-look.x * 1.2, 0.15, -look.z * 1.2);
         }
     }
 
     private void consumeItem(Player player, Item item) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack s = player.getInventory().getItem(i);
-            if (s.is(item)) {
-                s.shrink(1);
+            ItemStack stack = player.getInventory().getItem(i);
+            if (stack.is(item)) {
+                stack.shrink(1);
                 break;
             }
         }
@@ -143,7 +223,7 @@ public class GarlaczItem extends Item {
         double py = player.getEyeY() + look.y * 1.2;
         double pz = player.getZ() + look.z * 1.2;
         for (int i = 0; i < 25; i++) {
-            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, px, py, pz, 1, 0.2, 0.2, 0.2, 0.04);
+            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, px, py, pz, 1, 0.2, 0.2, 0.2, 0.05);
         }
     }
 
@@ -174,7 +254,7 @@ public class GarlaczItem extends Item {
         return stack.hasTag() && stack.getTag().getBoolean("Loaded");
     }
 
-    private static void setLoaded(ItemStack stack, boolean loaded) {
+    public static void setLoaded(ItemStack stack, boolean loaded) {
         stack.getOrCreateTag().putBoolean("Loaded", loaded);
     }
 
@@ -185,6 +265,6 @@ public class GarlaczItem extends Item {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        return UseAnim.BOW;
+        return UseAnim.NONE;
     }
 }
