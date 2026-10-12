@@ -1,6 +1,8 @@
 package net.lorden.musketmod.item;
 
+import net.lorden.musketmod.client.renderer.PowderFlaskRenderer;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -13,14 +15,45 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.client.extensions.common.IClientItemExtensions;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.List;
+import java.util.function.Consumer;
 
-public class PowderFlaskItem extends Item {
+public class PowderFlaskItem extends Item implements GeoItem {
     public static final int MAX_POWDER = 128;
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     public PowderFlaskItem(Properties properties) {
         super(properties.stacksTo(1));
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
+        consumer.accept(new IClientItemExtensions() {
+            private PowderFlaskRenderer renderer;
+
+            @Override
+            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.renderer == null) {
+                    this.renderer = new PowderFlaskRenderer();
+                }
+                return this.renderer;
+            }
+        });
     }
 
     public static int getPowderCount(ItemStack stack) {
@@ -41,13 +74,11 @@ public class PowderFlaskItem extends Item {
         return false;
     }
 
-    // Logika wkładania/wyjmowania w ekwipunku (jak Bundle)
     @Override
     public boolean overrideStackedOnOther(ItemStack flask, Slot slot, ClickAction action, Player player) {
         if (action != ClickAction.SECONDARY) return false;
         ItemStack other = slot.getItem();
 
-        // PPM na slocie z prochem -> wciąga proch do prochownicy
         if (other.is(Items.GUNPOWDER)) {
             int current = getPowderCount(flask);
             int space = MAX_POWDER - current;
@@ -57,9 +88,7 @@ public class PowderFlaskItem extends Item {
                 other.shrink(toTake);
                 return true;
             }
-        }
-        // PPM na pustym slocie -> wyrzuca stack prochu do slotu
-        else if (other.isEmpty()) {
+        } else if (other.isEmpty()) {
             int current = getPowderCount(flask);
             if (current > 0) {
                 int toDrop = Math.min(64, current);
@@ -75,7 +104,6 @@ public class PowderFlaskItem extends Item {
     public boolean overrideOtherStackedOnMe(ItemStack flask, ItemStack other, Slot slot, ClickAction action, Player player, SlotAccess access) {
         if (action != ClickAction.SECONDARY || !slot.allowModification(player)) return false;
 
-        // Trzymamy proch kursorem i klikamy PPM na prochownicę
         if (other.is(Items.GUNPOWDER)) {
             int current = getPowderCount(flask);
             int space = MAX_POWDER - current;
@@ -85,9 +113,7 @@ public class PowderFlaskItem extends Item {
                 other.shrink(toTake);
                 return true;
             }
-        }
-        // Trzymamy pusty kursor i klikamy PPM na prochownicę -> wyciągamy proch na kursor
-        else if (other.isEmpty()) {
+        } else if (other.isEmpty()) {
             int current = getPowderCount(flask);
             if (current > 0) {
                 int toTake = Math.min(64, current);
@@ -111,7 +137,7 @@ public class PowderFlaskItem extends Item {
 
     @Override
     public int getBarColor(ItemStack stack) {
-        return 0x555555; // Ciemnoszary pasek napełnienia
+        return 0x555555;
     }
 
     @Override
