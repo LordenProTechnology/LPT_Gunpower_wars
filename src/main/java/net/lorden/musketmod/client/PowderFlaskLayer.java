@@ -3,6 +3,7 @@ package net.lorden.musketmod.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.lorden.musketmod.item.ArkebuzItem;
+import net.lorden.musketmod.item.ModItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -16,21 +17,20 @@ import net.minecraft.world.item.ItemStack;
 public class PowderFlaskLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 
     // ==========================================
-    // PANEL EDYCJI POZYCJI PROCHOWNICY PRZY PASIE
+    // PANEL POZYCJI PRZY PASIE
     // ==========================================
 
-    // Przesunięcie (pozycja)
-    private static final float OFFSET_X = 0.28F;  // Prawo (+) / Lewo (-) względem gracza
-    private static final float OFFSET_Y = 0.75F;  // W dół (+) / W górę (-) (wysokość pasa)
-    private static final float OFFSET_Z = 0.00F;  // Do tyłu (+) / Do przodu (-)
+    // Wysunięcie lekko na zewnątrz prawego biodra (żeby nie tkwiła w środku ciała)
+    private static final float OFFSET_X = 0.25F;  // Prawo (+) / Lewo (-)
+    private static final float OFFSET_Y = 0.70F;  // W dół (+) w stronę pasa
+    private static final float OFFSET_Z = 0.00F;  // Przód / tył
 
-    // Skala (1.0F = 100% rozmiaru z Blockbencha)
     private static final float SCALE = 1.0F;
 
-    // Obrót (kąty w stopniach)
-    private static final float ROTATION_X = 0.0F;   // Pochylenie przód/tył
-    private static final float ROTATION_Y = 0.0F;   // Obrót lewo/prawo (ustawia cienką ściankę w przód)
-    private static final float ROTATION_Z = 0.0F;   // Przechył na bok
+    // Obrócenie do góry nogami (oś Z lub X)
+    private static final float ROTATION_X = 0.0F;
+    private static final float ROTATION_Y = 0.0F;
+    private static final float ROTATION_Z = 180.0F;
 
     public PowderFlaskLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
         super(parent);
@@ -39,26 +39,41 @@ public class PowderFlaskLayer extends RenderLayer<AbstractClientPlayer, PlayerMo
     @Override
     public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, AbstractClientPlayer player,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+
+        ItemStack mainHand = player.getMainHandItem();
+        ItemStack offHand = player.getOffhandItem();
+
+        // 1. Sprawdzamy ręce - ukrywamy TYLKO wtedy, gdy przedmiot w ręku faktycznie istnieje i jest prochownicą
+        if (!mainHand.isEmpty() && mainHand.is(ModItems.POWDER_FLASK.get())) {
+            return;
+        }
+        if (!offHand.isEmpty() && offHand.is(ModItems.POWDER_FLASK.get())) {
+            return;
+        }
+
+        // 2. Pobieramy prochownicę z ekwipunku/hotbara
         ItemStack flask = ArkebuzItem.getPowderFlaskFromHotbar(player);
-        if (flask == null || flask.isEmpty()) return;
+        if (flask == null || flask.isEmpty()) {
+            return;
+        }
 
         poseStack.pushPose();
 
-        // 1. Przypięcie do korpusu (obraca się i pochyla razem z tułowiem)
+        // 3. Podpięcie pod kość korpusu gracza
         this.getParentModel().body.translateAndRotate(poseStack);
 
-        // 2. Pozycja przy pasie
+        // 4. Pozycja
         poseStack.translate(OFFSET_X, OFFSET_Y, OFFSET_Z);
 
-        // 3. Rozmiar (100% bazowego modelu)
+        // 5. Skala
         poseStack.scale(SCALE, SCALE, SCALE);
 
-        // 4. Rotacja (ustawianie cienką ścianką do przodu)
+        // 6. Obrót
         if (ROTATION_X != 0.0F) poseStack.mulPose(Axis.XP.rotationDegrees(ROTATION_X));
         if (ROTATION_Y != 0.0F) poseStack.mulPose(Axis.YP.rotationDegrees(ROTATION_Y));
-        if (ROTATION_Z != 90.0F) poseStack.mulPose(Axis.ZP.rotationDegrees(ROTATION_Z));
+        if (ROTATION_Z != 0.0F) poseStack.mulPose(Axis.ZP.rotationDegrees(ROTATION_Z));
 
-        // 5. Renderowanie modelu GeckoLib
+        // 7. Renderowanie
         Minecraft.getInstance().getItemRenderer().renderStatic(
                 flask,
                 ItemDisplayContext.NONE,
