@@ -31,9 +31,9 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.function.Consumer;
 
 public class GarlaczItem extends Item implements GeoItem {
-    public static final int CHARGE_TIME = 140; // 7.0 sekund ładowania (krótszy niż arkebuz)
-    public static final int POST_SHOT_COOLDOWN = 25;
-    public static final int PELLETS_COUNT = 7; // Ilość śrutu na jeden strzał
+    public static final int CHARGE_TIME = 130; // Krótszy czas ładowania niż arkebuz (~6.5 sekundy)
+    public static final int POST_SHOT_COOLDOWN = 30; // Chwilowy cooldown po wystrzale
+    public static final int PELLETS_COUNT = 8; // Ilość śrucin w jednej salwie
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -91,6 +91,7 @@ public class GarlaczItem extends Item implements GeoItem {
 
         CompoundTag tag = stack.getOrCreateTag();
 
+        // 1. Strzał lub celowanie, gdy załadowany
         if (isLoaded(stack)) {
             if (tag.getBoolean("IsAiming")) {
                 shoot(level, player, stack);
@@ -104,12 +105,13 @@ public class GarlaczItem extends Item implements GeoItem {
             }
         }
 
+        // 2. Warunki ładowania: Pobojczyk w 2. ręce + proch w prochownicy na pasku + ŚRUT (lead_shot) w ekwipunku
         boolean hasRamrod = player.getOffhandItem().is(ModItems.RAMROD.get());
         ItemStack flask = ArkebuzItem.getPowderFlaskFromHotbar(player);
         boolean hasFlaskPowder = flask != null && PowderFlaskItem.getPowderCount(flask) > 0;
-        boolean hasBall = player.getInventory().contains(new ItemStack(ModItems.MUSKET_BALL.get()));
+        boolean hasLeadShot = player.getInventory().contains(new ItemStack(ModItems.LEAD_SHOT.get()));
 
-        if (hasRamrod && hasFlaskPowder && hasBall) {
+        if (hasRamrod && hasFlaskPowder && hasLeadShot) {
             tag.putBoolean("IsAiming", false);
             tag.putBoolean("IsLoading", true);
             tag.putBoolean("ReadyToAim", false);
@@ -119,8 +121,10 @@ public class GarlaczItem extends Item implements GeoItem {
             if (level.isClientSide) {
                 if (!hasRamrod) {
                     player.displayClientMessage(Component.translatable("message.musketmod.need_ramrod"), true);
-                } else {
+                } else if (!hasFlaskPowder) {
                     player.displayClientMessage(Component.translatable("message.musketmod.no_ammo"), true);
+                } else {
+                    player.displayClientMessage(Component.translatable("message.musketmod.need_lead_shot"), true);
                 }
             }
             return InteractionResultHolder.fail(stack);
@@ -152,12 +156,15 @@ public class GarlaczItem extends Item implements GeoItem {
         if (nbt.getBoolean("IsLoading")) {
             if (nbt.getBoolean("ReadyToAim")) {
                 if (!level.isClientSide) {
+                    // Pobranie 1 porcji prochu
                     ItemStack flaskStack = ArkebuzItem.getPowderFlaskFromHotbar(player);
                     if (flaskStack != null) {
                         PowderFlaskItem.consumePowder(flaskStack, 1);
                     }
-                    consumeItem(player, ModItems.MUSKET_BALL.get());
+                    // Zużycie 1 sztuki śrutu (lead_shot)
+                    consumeItem(player, ModItems.LEAD_SHOT.get());
 
+                    // Uszkodzenie pobojczyka
                     ItemStack offhandStack = player.getOffhandItem();
                     if (offhandStack.is(ModItems.RAMROD.get())) {
                         offhandStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
@@ -186,24 +193,27 @@ public class GarlaczItem extends Item implements GeoItem {
         if (!level.isClientSide) {
             triggerAnim(player, GeoItem.getOrAssignId(stack, (ServerLevel) level), "controller", "shoot");
 
-            // Wystrzał chmary śrutu z dużym rozrzutem (inaccuracy 9.0F)
+            // Wystrzał salwy śrutu (mechanika shotguna)
             for (int i = 0; i < PELLETS_COUNT; i++) {
-                MusketBulletEntity bullet = new MusketBulletEntity(level, player, 14.0F, 0.15F);
-                bullet.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 4.0F, 9.0F);
-                bullet.pickup = AbstractArrow.Pickup.DISALLOWED;
-                level.addFreshEntity(bullet);
+                // Obrażenia: 9.0F na śrucinę, mniejsza grawitacja/rozmiar
+                MusketBulletEntity pellet = new MusketBulletEntity(level, player, 9.0F, 0.15F);
+                // Prędkość: 3.2F (spada szybciej), Inaccuracy: 12.0F (duży rozrzut kielicha garłacza)
+                pellet.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 3.2F, 12.0F);
+                pellet.pickup = AbstractArrow.Pickup.DISALLOWED;
+                level.addFreshEntity(pellet);
             }
 
             stack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(player.getUsedItemHand()));
 
-            level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 2.0F, 0.5F);
+            // Głośniejszy, basowy wybuch z kielicha
+            level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 2.2F, 0.5F);
             spawnParticles((ServerLevel) level, player);
 
             player.getCooldowns().addCooldown(this, POST_SHOT_COOLDOWN);
 
-            // Silniejszy odrzut garłacza
+            // Bardzo mocny odrzut w tył
             Vec3 look = player.getLookAngle();
-            player.push(-look.x * 1.2, 0.15, -look.z * 1.2);
+            player.push(-look.x * 1.4, 0.20, -look.z * 1.4);
         }
     }
 
@@ -219,11 +229,11 @@ public class GarlaczItem extends Item implements GeoItem {
 
     private void spawnParticles(ServerLevel level, Player player) {
         Vec3 look = player.getLookAngle();
-        double px = player.getX() + look.x * 1.2;
-        double py = player.getEyeY() + look.y * 1.2;
-        double pz = player.getZ() + look.z * 1.2;
-        for (int i = 0; i < 25; i++) {
-            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, px, py, pz, 1, 0.2, 0.2, 0.2, 0.05);
+        double px = player.getX() + look.x * 1.1;
+        double py = player.getEyeY() + look.y * 1.1;
+        double pz = player.getZ() + look.z * 1.1;
+        for (int i = 0; i < 30; i++) {
+            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, px, py, pz, 1, 0.25, 0.25, 0.25, 0.06);
         }
     }
 
