@@ -23,10 +23,8 @@ public class GarlaczRenderer extends GeoItemRenderer<GarlaczItem> {
 
         // Pozycja celowania w TPP
         if (transformType == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND && isAiming) {
-            poseStack.translate(-0.20F, 0.18F, -0.42F);
-            poseStack.mulPose(Axis.XP.rotationDegrees(-70.0F));
-            poseStack.mulPose(Axis.YP.rotationDegrees(0.0F));
-            poseStack.mulPose(Axis.ZP.rotationDegrees(-180.0F));
+            poseStack.translate(-0.0F, -0.05F, -0.50F);
+
         }
 
         // Przyłożenie do oka w FPP
